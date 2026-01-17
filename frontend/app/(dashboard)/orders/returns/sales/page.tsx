@@ -15,7 +15,7 @@ const SalesReturnsPage = () => {
         url: returnApi.GET_ALL,
     });
 
-    const salesReturns = returns.filter((r) => r.type === "SALE_RETURN" || r.type === "RETURN");
+    const salesReturns = returns.filter((r) => r.type === "SALE_RETURN" || r.type === "SALE_REFUND" || r.type === "RETURN");
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">

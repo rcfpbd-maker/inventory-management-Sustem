@@ -45,6 +45,8 @@ const itemSchema = z.object({
 
 const formSchema = z.object({
     customerId: z.string().min(1, "Customer is required"),
+    platform: z.string().optional(),
+    deliveryType: z.string().optional(),
     items: z.array(itemSchema).min(1, "At least one item is required"),
 });
 
@@ -75,6 +77,8 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
         resolver: zodResolver(formSchema),
         defaultValues: {
             customerId: "",
+            platform: "Direct",
+            deliveryType: "Standard",
             items: [{ productId: "", quantity: 1, price: 0 }],
         },
     });
@@ -95,6 +99,8 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                 ...values,
                 type: "SALE",
                 totalAmount: subtotal,
+                platform: values.platform || "Direct",
+                deliveryType: values.deliveryType || "Standard",
             },
         });
     }
@@ -134,6 +140,55 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                                 </FormItem>
                             )}
                         />
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="platform"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Platform</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select platform" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="Direct">Direct</SelectItem>
+                                                <SelectItem value="Facebook">Facebook</SelectItem>
+                                                <SelectItem value="Website">Website</SelectItem>
+                                                <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="deliveryType"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Delivery Type</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select delivery type" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="Standard">Standard</SelectItem>
+                                                <SelectItem value="Express">Express</SelectItem>
+                                                <SelectItem value="COD">Cash on Delivery</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
 
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">

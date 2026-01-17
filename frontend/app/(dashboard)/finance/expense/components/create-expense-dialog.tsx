@@ -32,6 +32,10 @@ const formSchema = z.object({
     vendor: z.string().optional(),
     notes: z.string().optional(),
     date: z.string().optional(),
+    productCost: z.number().optional(),
+    packagingCost: z.number().optional(),
+    courierCost: z.number().optional(),
+    adCost: z.number().optional(),
 });
 
 interface CreateExpenseDialogProps {
@@ -56,6 +60,10 @@ export function CreateExpenseDialog({ open, onOpenChange }: CreateExpenseDialogP
             vendor: "",
             notes: "",
             date: new Date().toISOString().split("T")[0],
+            productCost: 0,
+            packagingCost: 0,
+            courierCost: 0,
+            adCost: 0,
         },
     });
 
@@ -135,6 +143,65 @@ export function CreateExpenseDialog({ open, onOpenChange }: CreateExpenseDialogP
                                 </FormItem>
                             )}
                         />
+
+                        <div className="border rounded-md p-4 space-y-4 bg-muted/20">
+                            <h4 className="font-medium text-sm text-muted-foreground">Cost Breakdown (Optional)</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="productCost"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs">Product Cost</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" step="0.01" {...field} onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="packagingCost"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs">Packaging Cost</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" step="0.01" {...field} onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="courierCost"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs">Courier Cost</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" step="0.01" {...field} onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="adCost"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs">Ad Cost</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" step="0.01" {...field} onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                        </div>
+
                         <FormField
                             control={form.control}
                             name="notes"

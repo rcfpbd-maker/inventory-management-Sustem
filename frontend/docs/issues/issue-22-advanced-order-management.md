@@ -12,10 +12,10 @@ Enhance sales orders with platform tracking, delivery types, and a formal status
     - `POST /api/orders`: Now supports platform and delivery type fields.
 
 ## Required Frontend Features
-- **Order Creation Update**: Add dropdowns for 'Platform' (Facebook, Website, WhatsApp, Direct) and 'Delivery Type'.
-- **Order list**: Display status badges and platform icons.
-- **Status Management UI**: A component to change order status (e.g., PENDING -> CONFIRMED -> PROCESSING -> SHIPPED -> DELIVERED).
-- **Confirmation Flow**: Capture the user who confirms an order.
+- [x] **Order Creation Update**: Add dropdowns for 'Platform' (Facebook, Website, WhatsApp, Direct) and 'Delivery Type'.
+- [ ] **Order list**: Display status badges and platform icons.
+- [ ] **Status Management UI**: A component to change order status (e.g., PENDING -> CONFIRMED -> PROCESSING -> SHIPPED -> DELIVERED).
+- [ ] **Confirmation Flow**: Capture the user who confirms an order.
 
 ## Validation & Logic
 - **Status Flow Restriction**: Prevent illegal transitions (e.g., cannot move from DELIVERED to PENDING).

@@ -129,7 +129,21 @@ export const navRoutes: NavGroup[] = [
             title: "User Performance",
             href: "/reports/user-performance",
           },
+          {
+            title: "Profit & Loss",
+            href: "/reports/profit-loss",
+          },
         ],
+      },
+    ],
+  },
+  {
+    label: "Logistics",
+    items: [
+      {
+        title: "Couriers",
+        href: "/logistics/couriers",
+        icon: Truck,
       },
     ],
   },

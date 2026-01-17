@@ -195,6 +195,8 @@ export interface Order {
   tracking_id?: string;
   customer_phone?: string;
   items?: OrderItem[];
+  platform?: string;
+  delivery_type?: string;
   createdAt: string;
 }
 
@@ -204,6 +206,8 @@ export interface OrderPayload {
   customerId?: string;
   supplierId?: string;
   totalAmount: number;
+  platform?: string;
+  deliveryType?: string;
   items: {
     productId: string;
     quantity: number;
@@ -237,6 +241,10 @@ export interface Expense {
   vendor?: string;
   notes?: string;
   date: string;
+  productCost?: number;
+  packagingCost?: number;
+  courierCost?: number;
+  adCost?: number;
   createdAt: string;
 }
 
@@ -246,6 +254,10 @@ export interface ExpensePayload {
   vendor?: string;
   notes?: string;
   date?: string;
+  productCost?: number;
+  packagingCost?: number;
+  courierCost?: number;
+  adCost?: number;
 }
 
 // Report types

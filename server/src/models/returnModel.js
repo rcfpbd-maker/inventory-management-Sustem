@@ -6,27 +6,46 @@ export class OrderReturn {
         const { orderId, type, amount, reason, date } = data;
         const id = uuidv4();
 
-        const query = `
-      INSERT INTO returns_refunds (id, order_id, type, amount, reason, date)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
-
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
 
+            // Validation: Check order exists and amount is valid
+            const [orders] = await connection.query(`SELECT total_amount FROM orders WHERE id = ?`, [orderId]);
+            if (orders.length === 0) {
+                throw new Error("Order not found");
+            }
+            const orderTotal = parseFloat(orders[0].total_amount);
+
+            // Check if amount exceeds order total
+            if (parseFloat(amount) > orderTotal) {
+                throw new Error(`Refund amount (${amount}) cannot exceed order total (${orderTotal})`);
+            }
+
+            // Check if previously returned amount + current amount exceeds total (Optional but recommended, for now strict per-refunc)
+            // For this iteration, we just check against total as per plan
+
+            const query = `
+              INSERT INTO returns_refunds (id, order_id, type, amount, reason, date)
+              VALUES (?, ?, ?, ?, ?, ?)
+            `;
+
             await connection.query(query, [id, orderId, type, amount, reason, date || new Date()]);
 
-            // If it's a return, update order status and adjust stock
-            if (type === 'SALE_RETURN' || type === 'PURCHASE_RETURN' || type === 'RETURN') {
+            // If it's a return (implies goods back), update order status and adjust stock
+            // Types: SALE_RETURN, PURCHASE_RETURN. 
+            // REFUND types (SALE_REFUND, PURCHASE_REFUND) do NOT restock.
+            const isReturn = type.includes('RETURN');
+
+            if (isReturn) {
                 await connection.query(`UPDATE orders SET status = 'RETURNED' WHERE id = ?`, [orderId]);
 
                 // Fetch items to adjust stock
                 const [items] = await connection.query(`SELECT product_id, quantity FROM order_items WHERE order_id = ?`, [orderId]);
 
                 for (const item of items) {
-                    // SALE_RETURN or 'RETURN' (assumed sale): stock INCREASES
-                    // PURCHASE_RETURN: stock DECREASES
+                    // SALE_RETURN: stock INCREASES (Customer gave back item)
+                    // PURCHASE_RETURN: stock DECREASES (We gave back item to supplier)
                     const stockAdjustment = (type === 'PURCHASE_RETURN') ? -item.quantity : item.quantity;
 
                     await connection.query(
@@ -34,6 +53,14 @@ export class OrderReturn {
                         [stockAdjustment, item.product_id]
                     );
                 }
+            } else {
+                // For REFUND only, we might just update status to something else or leave it?
+                // Usually partial refund doesn't change main status to RETURNED unless fully refunded.
+                // For now, let's just log the refund. If it's a full refund, maybe cancel?
+                // Keeping status as is for Partial Refund, or maybe 'PARTIAL_REFUND'?
+                // Requirement just said "Manage... status updates".
+                // Let's safe-play and NOT change status to 'RETURNED' if it's just a money refund, 
+                // to avoid confusion that items came back.
             }
 
             await connection.commit();

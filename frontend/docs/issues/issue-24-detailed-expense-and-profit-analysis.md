@@ -1,6 +1,6 @@
 # Issue #24: Detailed Expense Tracking & Profit Analysis
 
-## Priority: Medium 🟡 | Status: Backend Implemented / Frontend Pending
+## Priority: Medium 🟡 | Status: Completed
 
 ## Description
 Enhance expense tracking to include granular order-level costs (product, packaging, courier, ads) and calculate net profit.
