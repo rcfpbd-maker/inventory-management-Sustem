@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
-import axios from "axios";
+import api from "@/lib/axios";
 
 import {
     Dialog,
@@ -87,11 +87,7 @@ export function AddPaymentDialog({
                 date: values.date,
             };
 
-            await axios.post(paymentApi.CREATE, payload, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("token")}`,
-                },
-            });
+            await api.post(paymentApi.CREATE, payload);
 
             toast.success("Payment added successfully");
             form.reset();

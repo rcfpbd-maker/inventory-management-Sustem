@@ -5,6 +5,7 @@ import {
   getOrderProfitReport,
   getDailySales,
   getUserPerformance,
+  getDashboardStats,
 } from "../controllers/reportController.js";
 import {
   authenticateToken,
@@ -22,5 +23,6 @@ router.get("/daily-ledger", getDailyLedger);
 router.get("/profit/orders", getOrderProfitReport);
 router.get("/daily-sales", getDailySales);
 router.get("/user-performance", getUserPerformance);
+router.get("/dashboard-stats", getDashboardStats);
 
 export default router;

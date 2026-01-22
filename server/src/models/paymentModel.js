@@ -29,7 +29,7 @@ export class Payment {
       `;
             await connection.query(query, [id, orderId, amount, paymentMethod, paymentChannel, transactionId, status, date || new Date()]);
 
-            // 3. Update Order payment status
+            // 3. Update Order payment status and financials
             const totalPaid = currentTotalPaid + parseFloat(amount);
             let paymentStatus = 'PARTIAL';
             if (totalPaid >= totalAmount - 0.01) {
@@ -40,7 +40,10 @@ export class Payment {
                 paymentStatus = 'UNPAID';
             }
 
-            await connection.query(`UPDATE orders SET payment_status = ? WHERE id = ?`, [paymentStatus, orderId]);
+            await connection.query(
+                `UPDATE orders SET payment_status = ?, paid_amount = ?, due_amount = ? WHERE id = ?`,
+                [paymentStatus, totalPaid, Math.max(0, parseFloat(totalAmount) - totalPaid), orderId]
+            );
 
             await connection.commit();
             return { id, ...paymentData };

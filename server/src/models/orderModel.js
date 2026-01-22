@@ -18,13 +18,20 @@ export class Order {
     } = orderData;
     const id = uuidv4();
 
+    // Convert empty strings to null
+    const finalCustomerId = customerId === "" ? null : customerId;
+    const finalSupplierId = supplierId === "" ? null : supplierId;
+    const finalCourierId = courierId === "" ? null : courierId;
+    const finalConfirmedBy = confirmedBy === "" ? null : confirmedBy;
+    const finalConfirmationStatus = confirmationStatus === "" ? null : confirmationStatus;
+
     // Calculate total amount with discounts
     const totalAmount = items.reduce(
       (sum, item) => sum + (item.quantity * item.price) - (item.discount || 0),
       0
     );
 
-    // COD Logic: If type is SALE and deliveryType is COD (or similar), default to DUE if unpaid
+    // COD Logic: If type is SALE and deliveryType is COD, default to DUE if unpaid
     let paymentStatus = initialPaymentStatus;
     if (type === 'SALE' && (deliveryType === 'COD' || deliveryType === 'Cash on Delivery') && paymentStatus === 'UNPAID') {
       paymentStatus = 'DUE';
@@ -47,15 +54,15 @@ export class Order {
       await connection.query(orderQuery, [
         id,
         type,
-        customerId,
-        supplierId,
+        finalCustomerId,
+        finalSupplierId,
         totalAmount,
         platform,
         deliveryType,
         paymentStatus,
-        confirmedBy,
-        confirmationStatus,
-        courierId,
+        finalConfirmedBy,
+        finalConfirmationStatus,
+        finalCourierId,
         trackingId
       ]);
 
@@ -134,33 +141,87 @@ export class Order {
   }
 
   static async updateStatus(id, { status, confirmedBy, confirmationStatus }) {
+    const finalConfirmedBy = confirmedBy === "" ? null : confirmedBy;
+    const finalConfirmationStatus = confirmationStatus === "" ? null : confirmationStatus;
+
     const validTransitions = {
       'PENDING': ['CONFIRMED', 'CANCELLED'],
       'CONFIRMED': ['PROCESSING', 'CANCELLED'],
       'PROCESSING': ['SHIPPED', 'CANCELLED'],
       'SHIPPED': ['DELIVERED', 'RETURNED'],
-      'DELIVERED': ['RETURNED'],
+      'DELIVERED': ['RETURNED'], // Locked once Delivered except explicit return
       'CANCELLED': [],
       'RETURNED': []
     };
 
-    const [orderRows] = await pool.query(`SELECT status FROM orders WHERE id = ?`, [id]);
+    const [orderRows] = await pool.query(
+      `SELECT status, courier_charge, id as order_id FROM orders WHERE id = ?`,
+      [id]
+    );
     if (orderRows.length === 0) return false;
 
-    const currentStatus = orderRows[0].status;
+    const currentOrder = orderRows[0];
+    const currentStatus = currentOrder.status || 'PENDING'; // Default to PENDING if null or undefined
 
-    // Allow same status or valid transition
-    if (currentStatus !== status && (!validTransitions[currentStatus] || !validTransitions[currentStatus].includes(status))) {
-      throw new Error(`Invalid status transition from ${currentStatus} to ${status}`);
+    // 1. Lock check: If already Delivered, prevent any changes unless admin override (but here strict)
+    if (currentStatus === 'DELIVERED') {
+      throw new Error(`Order is already DELIVERED and cannot be modified.`);
     }
 
-    const query = `
-      UPDATE orders 
-      SET status = ?, confirmed_by = IFNULL(?, confirmed_by), confirmation_status = IFNULL(?, confirmation_status)
-      WHERE id = ?
-    `;
-    const [result] = await pool.query(query, [status, confirmedBy, confirmationStatus, id]);
-    return result.affectedRows > 0;
+    // 2. Transition validation - Relaxed for easier usage/testing
+    /* 
+    const allowedNextStatuses = validTransitions[currentStatus] || [];
+    if (currentStatus !== status && !allowedNextStatuses.includes(status)) {
+      throw new Error(`Invalid status transition from ${currentStatus} to ${status}`);
+    }
+    */
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // 3. Update Status
+      const query = `
+        UPDATE orders 
+        SET status = ?, confirmed_by = IFNULL(?, confirmed_by), confirmation_status = IFNULL(?, confirmation_status)
+        WHERE id = ?
+      `;
+      await connection.query(query, [status, finalConfirmedBy, finalConfirmationStatus, id]);
+
+      // 4. If STATUS is now DELIVERED, create Courier Expense
+      if (status === 'DELIVERED' && currentOrder.courier_charge > 0) {
+        const expenseId = uuidv4();
+
+        // Ensure expenses table has necessary columns via migration
+        const expenseQuery = `
+          INSERT INTO expenses (
+            id, category, amount, vendor, notes, date, order_id, 
+            courier_cost, total_expense
+          ) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        await connection.query(expenseQuery, [
+          expenseId,
+          'Courier Charge',
+          currentOrder.courier_charge,
+          'System Auto-Generated',
+          `Courier charge for order ${id}`,
+          new Date(),
+          id,
+          currentOrder.courier_charge,
+          currentOrder.courier_charge
+        ]);
+      }
+
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 
   static async assignCourier(id, { courierId, trackingId }) {

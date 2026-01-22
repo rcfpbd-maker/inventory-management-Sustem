@@ -11,12 +11,9 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CheckCircle2 } from "lucide-react";
-import { usePostData } from "@/hooks/useFetchData"; // Assuming usePutData is not available or we use usePostData with method override if supported, or axios
-import axios from "axios";
-import { orderApi } from "@/api/endpoint/order-api";
-import { toast } from "sonner"; // Assuming sonner is used, or use toast from ui/use-toast
+import api from "@/lib/axios";
+import { toast } from "sonner";
 
 interface OrderStatusManagerProps {
     order: Order;
@@ -37,14 +34,14 @@ export function OrderStatusManager({ order, onUpdate }: OrderStatusManagerProps)
     const [status, setStatus] = useState(order.status || "PENDING");
     const [loading, setLoading] = useState(false);
 
-    // Derive status color (similar to columns)
+    // Derive status color
     const getStatusColor = (s: string) => {
         switch (s?.toUpperCase()) {
             case "PENDING": return "secondary";
-            case "CONFIRMED": return "default"; // or blue
+            case "CONFIRMED": return "default";
             case "PROCESSING": return "default";
             case "SHIPPED": return "secondary";
-            case "DELIVERED": return "default"; // green
+            case "DELIVERED": return "default";
             case "CANCELLED": return "destructive";
             case "RETURNED": return "destructive";
             default: return "secondary";
@@ -60,22 +57,15 @@ export function OrderStatusManager({ order, onUpdate }: OrderStatusManagerProps)
 
         setLoading(true);
         try {
-            // Manually using axios for PUT if custom hook doesn't support it easily or for direct control
-            // The backend endpoint is PUT /api/orders/:id/status
-            await axios.put(
-                `${process.env.NEXT_PUBLIC_API_URL}/orders/${order.id}/status`,
-                { status },
-                {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
-                    },
-                }
+            await api.put(
+                `/orders/${order.id}/status`,
+                { status }
             );
             toast.success("Order status updated successfully");
             if (onUpdate) onUpdate();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to update status:", error);
-            toast.error("Failed to update order status");
+            toast.error(error.response?.data?.message || "Failed to update order status");
             setStatus(order.status || "PENDING"); // Revert on failure
         } finally {
             setLoading(false);
@@ -88,7 +78,7 @@ export function OrderStatusManager({ order, onUpdate }: OrderStatusManagerProps)
                 <div className="space-y-1">
                     <p className="text-sm font-medium leading-none">Order Status</p>
                     <p className="text-sm text-muted-foreground">
-                        Current: <Badge variant={getStatusColor(order.status || "PENDING")}>{order.status || "PENDING"}</Badge>
+                        Current: <Badge variant={getStatusColor(order.status || "PENDING") as any}>{order.status || "PENDING"}</Badge>
                     </p>
                 </div>
             </div>
