@@ -11,6 +11,7 @@ import {
   Truck,
   Layers,
   RefreshCcw,
+  Activity,
   LucideIcon,
 } from "lucide-react";
 
@@ -154,6 +155,13 @@ export const navRoutes: NavGroup[] = [
         title: "Settings",
         href: "/settings",
         icon: Settings,
+        children: [
+          {
+            title: "Audit Logs",
+            href: "/settings/audit-logs",
+            icon: Activity,
+          },
+        ],
       },
     ],
   },

@@ -27,12 +27,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Redirect to login or dispatch logout action
-      if (typeof window !== "undefined") {
-        // handle logout logic here, maybe clear token
-        // localStorage.removeItem("token");
-        // window.location.href = "/login";
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      const message = error.response?.data?.message || "";
+      if (message.includes("expired") || message.includes("Invalid") || error.response?.status === 401) {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          window.location.href = "/login";
+        }
       }
     }
     return Promise.reject(error);

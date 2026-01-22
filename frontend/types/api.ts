@@ -352,8 +352,19 @@ export interface PaymentPayload {
 export interface AuditLog {
   id: string;
   event: string;
-  userId?: string;
+  category: string;
+  action: string;
+  user_id: string | null;
+  user_email?: string;
+  username?: string;
   timestamp: string;
+}
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 // User permission and status update types

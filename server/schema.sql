@@ -47,10 +47,15 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS products (
   id VARCHAR(36) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
+  sku VARCHAR(50) UNIQUE,
   category_id VARCHAR(36),
   purchase_price DECIMAL(10, 2) NOT NULL,
   sale_price DECIMAL(10, 2) NOT NULL,
   stock_quantity INT DEFAULT 0,
+  min_stock INT DEFAULT 5,
+  description TEXT,
+  status ENUM('ACTIVE', 'INACTIVE') DEFAULT 'ACTIVE',
+  image_url TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
@@ -60,13 +65,22 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE TABLE IF NOT EXISTS orders (
   id VARCHAR(36) PRIMARY KEY,
   type ENUM('SALE', 'PURCHASE', 'SALE_RETURN', 'PURCHASE_RETURN') NOT NULL,
+  status ENUM('PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURNED') DEFAULT 'PENDING',
   date DATETIME DEFAULT CURRENT_TIMESTAMP,
   customer_id VARCHAR(36),
   supplier_id VARCHAR(36),
   total_amount DECIMAL(10, 2) NOT NULL,
+  platform VARCHAR(50) DEFAULT 'Direct',
+  delivery_type VARCHAR(50) DEFAULT 'Standard',
+  payment_status ENUM('PAID', 'UNPAID', 'PARTIAL', 'DUE') DEFAULT 'UNPAID',
+  confirmed_by VARCHAR(36),
+  confirmation_status ENUM('UNCONFIRMED', 'CONFIRMED') DEFAULT 'UNCONFIRMED',
+  courier_id VARCHAR(36),
+  tracking_id VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
-  FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
+  FOREIGN KEY (confirmed_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Order Items Table
@@ -76,9 +90,21 @@ CREATE TABLE IF NOT EXISTS order_items (
   product_id VARCHAR(36) NOT NULL,
   quantity INT NOT NULL,
   price DECIMAL(10, 2) NOT NULL,
+  discount DECIMAL(10, 2) DEFAULT 0,
   total DECIMAL(10, 2) NOT NULL,
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+-- Returns & Refunds Table
+CREATE TABLE IF NOT EXISTS returns_refunds (
+  id VARCHAR(36) PRIMARY KEY,
+  order_id VARCHAR(36) NOT NULL,
+  type ENUM('SALE_RETURN', 'PURCHASE_RETURN', 'SALE_REFUND', 'PURCHASE_REFUND') NOT NULL,
+  amount DECIMAL(10, 2) NOT NULL,
+  reason TEXT,
+  date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
 -- Income Table
@@ -103,9 +129,24 @@ CREATE TABLE IF NOT EXISTS expenses (
 CREATE TABLE IF NOT EXISTS audit_logs (
   id VARCHAR(36) PRIMARY KEY,
   event TEXT NOT NULL,
+  category VARCHAR(50) DEFAULT 'SYSTEM',
+  action VARCHAR(50) DEFAULT 'OTHER',
   user_id VARCHAR(36),
   timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Settings Table
+CREATE TABLE IF NOT EXISTS settings (
+  id INT PRIMARY KEY DEFAULT 1,
+  shop_name VARCHAR(255) NOT NULL,
+  shop_address TEXT,
+  shop_phone VARCHAR(20),
+  shop_email VARCHAR(255),
+  currency VARCHAR(10) DEFAULT '৳',
+  invoice_footer TEXT,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT single_row CHECK (id = 1)
 );
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -24,9 +24,15 @@ export const authenticateToken = (req, res, next) => {
       config.jwtSecret || "super_secret_jwt_key_ims_v2_2024"
     );
     req.user = decoded; // { id, username, email, role, permissions }
+
+    // Normalize role to uppercase for safety
+    if (req.user.role) {
+      req.user.role = req.user.role.toUpperCase();
+    }
+
     next();
   } catch (err) {
-    return res.status(403).json({ message: "Invalid or expired token." });
+    return res.status(401).json({ message: "Invalid or expired token." });
   }
 };
 
@@ -40,12 +46,15 @@ export const authorizeRoles = (...allowedRoles) => {
       return res.status(401).json({ message: "Unauthorized." });
     }
 
-    // Admin/Superadmin bypass role checks (optional, but good practice to be explicit)
-    if (req.user.role === UserRoles.SUPER_ADMIN) {
+    // Normalized to upper Case in authenticateToken
+    const userRole = req.user.role;
+
+    // Admin/Superadmin bypass role checks
+    if (userRole === UserRoles.SUPER_ADMIN) {
       return next();
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
         message: `Access denied. Requires one of: ${allowedRoles.join(", ")}`,
       });

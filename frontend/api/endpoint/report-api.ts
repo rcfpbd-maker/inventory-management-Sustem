@@ -7,4 +7,6 @@ export const reportApi = {
     PROFIT_LOSS: (start: string, end: string) => `${baseUrl}/reports/profit-loss?startDate=${start}&endDate=${end}`,
     DAILY_LEDGER: (date: string) => `${baseUrl}/reports/daily-ledger?date=${date}`,
     ORDER_PROFIT: `${baseUrl}/reports/profit/orders`,
+    GET_PLATFORM_SALES: `${baseUrl}/reports/platform-sales`,
+    GET_DUE_LIST: `${baseUrl}/reports/due-list`,
 };

@@ -34,16 +34,15 @@ export default function StockPage() {
   const handleAdjustStock = async (
     id: string,
     currentStock: number,
-    adjustment: number
+    adjustment: number,
+    productName: string
   ) => {
-    // This assumes we have an API to adjust stock or we simulate it via update
-    // Ideally we should have /products/:id/stock endpoint
-    // For now I'll use product update
     try {
       const newStock = Math.max(0, currentStock + adjustment);
-      await productApi.update(id, { stock: newStock });
+      // Use stockQuantity to match backend mapping in productModel.js
+      await productApi.update(id, { stockQuantity: newStock } as any);
       toast.success(
-        `Stock ${adjustment > 0 ? "added" : "removed"}. New Stock: ${newStock}`
+        `Stock for ${productName} ${adjustment > 0 ? "increased" : "decreased"}. New Stock: ${newStock}`
       );
       queryClient.invalidateQueries({ queryKey: ["products"] });
     } catch {
@@ -147,7 +146,7 @@ export default function StockPage() {
                         variant="outline"
                         size="icon"
                         onClick={() =>
-                          handleAdjustStock(product.id, product.stock, 1)
+                          handleAdjustStock(product.id, product.stock, 1, product.name)
                         }
                       >
                         <ArrowUp className="h-4 w-4 text-green-500" />
@@ -156,7 +155,7 @@ export default function StockPage() {
                         variant="outline"
                         size="icon"
                         onClick={() =>
-                          handleAdjustStock(product.id, product.stock, -1)
+                          handleAdjustStock(product.id, product.stock, -1, product.name)
                         }
                       >
                         <ArrowDown className="h-4 w-4 text-red-500" />

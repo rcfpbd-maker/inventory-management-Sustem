@@ -3,12 +3,12 @@ import { v4 as uuidv4 } from "uuid";
 
 export class Product {
   static async create(productData) {
-    const { name, categoryId, purchasePrice, salePrice, stockQuantity } =
+    const { name, categoryId, purchasePrice, salePrice, stockQuantity, minStock } =
       productData;
     const id = uuidv4();
     const query = `
-      INSERT INTO products (id, name, category_id, purchase_price, sale_price, stock_quantity) 
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO products (id, name, category_id, purchase_price, sale_price, stock_quantity, minimum_stock) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     const values = [
       id,
@@ -17,6 +17,7 @@ export class Product {
       purchasePrice,
       salePrice,
       stockQuantity || 0,
+      minStock || 5,
     ];
 
     await pool.query(query, values);
@@ -31,7 +32,7 @@ export class Product {
         p.purchase_price as costPrice, 
         p.sale_price as price, 
         p.stock_quantity as stock, 
-        p.min_stock as minStock,
+        p.minimum_stock as minStock,
         p.description, p.status, p.image_url as imageUrl,
         p.created_at as createdAt, p.updated_at as updatedAt,
         c.name as categoryName 
@@ -51,7 +52,7 @@ export class Product {
         purchase_price as costPrice, 
         sale_price as price, 
         stock_quantity as stock,
-        min_stock as minStock,
+        minimum_stock as minStock,
         description, status, image_url as imageUrl,
         created_at as createdAt, updated_at as updatedAt
       FROM products WHERE id = ?
@@ -71,6 +72,7 @@ export class Product {
       purchasePrice: "purchase_price",
       salePrice: "sale_price",
       stockQuantity: "stock_quantity",
+      minStock: "minimum_stock",
     };
 
     for (const [key, value] of Object.entries(updates)) {

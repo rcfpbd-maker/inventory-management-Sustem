@@ -11,7 +11,7 @@ export class User {
       username,
       email,
       password,
-      role = "staff",
+      role = "STAFF",
       permissions = {},
     } = userData;
     const id = generateId();

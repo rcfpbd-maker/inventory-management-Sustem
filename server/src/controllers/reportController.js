@@ -275,3 +275,54 @@ export const getUserPerformance = async (req, res) => {
     sendError(res, 500, error.message, error);
   }
 };
+
+export const getPlatformSales = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const start = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split("T")[0];
+    const end = endDate || new Date().toISOString().split("T")[0];
+
+    const query = `
+      SELECT 
+        platform,
+        COUNT(*) as order_count,
+        SUM(total_amount) as total_amount
+      FROM orders 
+      WHERE type = 'SALE' AND status != 'CANCELLED' AND date >= ? AND date <= ?
+      GROUP BY platform
+      ORDER BY total_amount DESC
+    `;
+    const [rows] = await pool.query(query, [start, end]);
+    sendResponse(res, 200, "Platform Sales Report", rows);
+  } catch (error) {
+    sendError(res, 500, error.message, error);
+  }
+};
+
+export const getDueList = async (req, res) => {
+  try {
+    // Current due list (where total_amount > sum of payments)
+    const query = `
+      SELECT 
+        o.id as order_id,
+        o.date,
+        c.name as customer_name,
+        c.phone as customer_phone,
+        o.total_amount,
+        o.platform,
+        IFNULL(SUM(p.amount), 0) as paid_amount,
+        (o.total_amount - IFNULL(SUM(p.amount), 0)) as due_amount
+      FROM orders o
+      LEFT JOIN customers c ON o.customer_id = c.id
+      LEFT JOIN payments p ON o.id = p.order_id AND p.status = 'COMPLETED'
+      WHERE o.type = 'SALE' AND o.status != 'CANCELLED'
+      GROUP BY o.id
+      HAVING due_amount > 0
+      ORDER BY due_amount DESC
+    `;
+    const [rows] = await pool.query(query);
+    sendResponse(res, 200, "Due List Report", rows);
+  } catch (error) {
+    sendError(res, 500, error.message, error);
+  }
+};

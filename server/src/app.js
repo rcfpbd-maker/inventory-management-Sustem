@@ -18,6 +18,7 @@ import reportRoutes from "./routes/reportRoutes.js";
 import auditRoutes from "./routes/auditRoutes.js";
 import backupRoutes from "./routes/backupRoutes.js";
 import incomeRoutes from "./routes/incomeRoutes.js";
+import settingsRoutes from "./routes/settingsRoutes.js";
 
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger.js";
@@ -50,5 +51,6 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/audit-logs", auditRoutes);
 app.use("/api/backup", backupRoutes);
 app.use("/api/income", incomeRoutes);
+app.use("/api/settings", settingsRoutes);
 
 export default app;

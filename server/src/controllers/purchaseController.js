@@ -1,14 +1,15 @@
 import pool from "../config/db.js";
-import { logAudit } from "../services/auditService.js";
+import { AuditLog } from "../models/auditLogModel.js";
+import { sendResponse, sendError } from "../utils/responseHandler.js";
 
 export const getPurchases = async (req, res) => {
   try {
     const [rows] = await pool.query(
       "SELECT * FROM purchases ORDER BY purchaseDate DESC"
     );
-    res.json(rows);
+    sendResponse(res, 200, "Purchases retrieved successfully", rows);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendError(res, 500, error.message, error);
   }
 };
 
@@ -29,29 +30,28 @@ export const createPurchase = async (req, res) => {
         purchase.totalCost,
         purchase.supplierName,
         purchase.purchaseDate,
-        purchase.createdBy,
+        purchase.createdBy || req.user?.id,
       ]
     );
 
     await conn.query(
-      "UPDATE products SET currentStock = currentStock + ? WHERE id = ?",
+      "UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?",
       [purchase.quantity, purchase.productId]
     );
-    await logAudit(
-      conn,
-      purchase.id,
-      "Purchase",
-      "STOCK_IN",
-      null,
-      purchase,
-      purchase.createdBy
-    );
+
+    // Standard audit log
+    await AuditLog.create({
+      event: `Stock In (Purchase): ${purchase.productName} - Qty: ${purchase.quantity}`,
+      userId: purchase.createdBy || req.user?.id,
+      category: "PRODUCT",
+      action: "UPDATE",
+    });
 
     await conn.commit();
-    res.status(201).json({ success: true });
+    sendResponse(res, 201, "Purchase created and stock updated successfully");
   } catch (err) {
     await conn.rollback();
-    res.status(500).json({ message: err.message });
+    sendError(res, 500, err.message, err);
   } finally {
     conn.release();
   }

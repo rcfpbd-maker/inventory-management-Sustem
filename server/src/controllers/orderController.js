@@ -1,5 +1,6 @@
 import { Order } from "../models/orderModel.js";
 import { sendResponse, sendError } from "../utils/responseHandler.js";
+import { AuditLog } from "../models/auditLogModel.js";
 
 export const getAllOrders = async (req, res) => {
   try {
@@ -27,6 +28,12 @@ export const createOrder = async (req, res) => {
       return sendError(res, 400, "Order must have at least one item");
     }
     const result = await Order.create(req.body);
+    await AuditLog.create({
+      event: `Order created: ${result.orderId || req.body.platform}`,
+      userId: req.user?.id,
+      category: "ORDER",
+      action: "CREATE",
+    });
     sendResponse(res, 201, "Order created successfully", result);
   } catch (error) {
     sendError(res, 500, error.message, error);
@@ -41,6 +48,13 @@ export const updateOrderStatus = async (req, res) => {
     const success = await Order.updateStatus(req.params.id, { status, confirmedBy, confirmationStatus });
     if (!success) return sendError(res, 404, "Order not found");
 
+    await AuditLog.create({
+      event: `Order status updated: ${req.params.id} to ${status}`,
+      userId: req.user?.id,
+      category: "ORDER",
+      action: "UPDATE",
+    });
+
     sendResponse(res, 200, "Order status updated successfully");
   } catch (error) {
     sendError(res, 500, error.message, error);
@@ -52,6 +66,13 @@ export const assignCourierToOrder = async (req, res) => {
     const { courierId, trackingId } = req.body;
     const success = await Order.assignCourier(req.params.id, { courierId, trackingId });
     if (!success) return sendError(res, 404, "Order not found");
+
+    await AuditLog.create({
+      event: `Courier assigned to order: ${req.params.id}`,
+      userId: req.user?.id,
+      category: "ORDER",
+      action: "UPDATE",
+    });
 
     sendResponse(res, 200, "Courier assigned successfully");
   } catch (error) {

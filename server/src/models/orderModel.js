@@ -144,23 +144,67 @@ export class Order {
       'RETURNED': []
     };
 
-    const [orderRows] = await pool.query(`SELECT status FROM orders WHERE id = ?`, [id]);
-    if (orderRows.length === 0) return false;
+    const connection = await pool.getConnection();
 
-    const currentStatus = orderRows[0].status;
+    try {
+      await connection.beginTransaction();
 
-    // Allow same status or valid transition
-    if (currentStatus !== status && (!validTransitions[currentStatus] || !validTransitions[currentStatus].includes(status))) {
-      throw new Error(`Invalid status transition from ${currentStatus} to ${status}`);
+      const [orderRows] = await connection.query(`SELECT status, type FROM orders WHERE id = ?`, [id]);
+      if (orderRows.length === 0) {
+        await connection.rollback();
+        return false;
+      }
+
+      const { status: currentStatus, type: orderType } = orderRows[0];
+
+      // Allow same status or valid transition
+      if (currentStatus !== status && (!validTransitions[currentStatus] || !validTransitions[currentStatus].includes(status))) {
+        throw new Error(`Invalid status transition from ${currentStatus} to ${status}`);
+      }
+
+      // 1. Update status
+      const query = `
+        UPDATE orders 
+        SET status = ?, confirmed_by = IFNULL(?, confirmed_by), confirmation_status = IFNULL(?, confirmation_status)
+        WHERE id = ?
+      `;
+      await connection.query(query, [status, confirmedBy, confirmationStatus, id]);
+
+      // 2. Handle Stock Restoration on Cancellation
+      if (status === 'CANCELLED' && currentStatus !== 'CANCELLED') {
+        const [items] = await connection.query(
+          `SELECT product_id, quantity FROM order_items WHERE order_id = ?`,
+          [id]
+        );
+
+        for (const item of items) {
+          let stockAdjustment = 0;
+          // RESTORE logic is reverse of Order.create logic:
+          // SALE/PURCHASE_RETURN decreased stock -> RESTORE increases
+          // PURCHASE/SALE_RETURN increased stock -> RESTORE decreases
+          if (orderType === "SALE" || orderType === "PURCHASE_RETURN") {
+            stockAdjustment = item.quantity;
+          } else if (orderType === "PURCHASE" || orderType === "SALE_RETURN") {
+            stockAdjustment = -item.quantity;
+          }
+
+          if (stockAdjustment !== 0) {
+            await connection.query(
+              `UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?`,
+              [stockAdjustment, item.product_id]
+            );
+          }
+        }
+      }
+
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
-
-    const query = `
-      UPDATE orders 
-      SET status = ?, confirmed_by = IFNULL(?, confirmed_by), confirmation_status = IFNULL(?, confirmation_status)
-      WHERE id = ?
-    `;
-    const [result] = await pool.query(query, [status, confirmedBy, confirmationStatus, id]);
-    return result.affectedRows > 0;
   }
 
   static async assignCourier(id, { courierId, trackingId }) {

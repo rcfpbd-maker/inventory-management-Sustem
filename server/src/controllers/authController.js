@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { AuditLog } from "../models/auditLogModel.js";
 import jwt from "jsonwebtoken";
 import { User } from "../models/userModel.js";
 import { config } from "../config/env.js";
@@ -53,6 +54,12 @@ export const login = async (req, res) => {
     }
 
     // Generate Token
+    await AuditLog.create({
+      event: `User ${user.email} logged in`,
+      userId: user.id,
+      category: "AUTH",
+      action: "LOGIN",
+    });
     const payload = {
       id: user.id,
       username: user.username,
