@@ -21,19 +21,70 @@ export const getOrderById = async (req, res) => {
   }
 };
 
+import { Customer } from "../models/customerModel.js";
+import { Payment } from "../models/paymentModel.js";
+
 export const createOrder = async (req, res) => {
   try {
-    const { items } = req.body;
+    const { items, customerName, customerPhone, amountPaid, paymentMethod, paymentReference } = req.body;
+
     if (!items || items.length === 0) {
       return sendError(res, 400, "Order must have at least one item");
     }
+
+    // 1. Handle "New Customer" Logic
+    if (!req.body.customerId && customerName && customerPhone) {
+      // Check if customer exists by phone first to avoid duplicates
+      const existingCustomer = await Customer.findByPhone(customerPhone);
+      if (existingCustomer) {
+        req.body.customerId = existingCustomer.id;
+      } else {
+        const newCustomer = await Customer.create({
+          name: customerName,
+          phone: customerPhone,
+          email: ""
+        });
+        req.body.customerId = newCustomer.id;
+      }
+    }
+
+    if (!req.body.customerId) {
+      return sendError(res, 400, "Customer is required (select existing or provide name & phone)");
+    }
+
+    // 2. Create Order
     const result = await Order.create(req.body);
+
+    // 3. Handle Initial Payment
+    if (amountPaid && Number(amountPaid) > 0) {
+      await Payment.create({
+        orderId: result.id,
+        amount: Number(amountPaid),
+        paymentMethod: paymentMethod || 'Cash',
+        transactionId: paymentReference || `INIT-${Date.now()}`,
+        status: 'COMPLETED',
+        date: new Date()
+      });
+      // Refresh order result with updated payment status
+      const updatedOrder = await Order.findById(result.id);
+
+      await AuditLog.create({
+        event: `Order created with payment: ${result.id} (Paid: ${amountPaid})`,
+        userId: req.user?.id,
+        category: "ORDER",
+        action: "CREATE",
+      });
+
+      return sendResponse(res, 201, "Order created with payment successfully", updatedOrder);
+    }
+
     await AuditLog.create({
-      event: `Order created: ${result.orderId || req.body.platform}`,
+      event: `Order created: ${result.id}`,
       userId: req.user?.id,
       category: "ORDER",
       action: "CREATE",
     });
+
     sendResponse(res, 201, "Order created successfully", result);
   } catch (error) {
     sendError(res, 500, error.message, error);

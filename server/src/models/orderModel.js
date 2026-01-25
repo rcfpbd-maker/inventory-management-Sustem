@@ -14,15 +14,20 @@ export class Order {
       confirmedBy = null,
       confirmationStatus = 'UNCONFIRMED',
       courierId = null,
-      trackingId = null
+      trackingId = null,
+      courierCharge = 0
     } = orderData;
     const id = uuidv4();
 
-    // Calculate total amount with discounts
-    const totalAmount = items.reduce(
+    console.log(`OrderModel: Creating order ${id}. CourierCharge: ${courierCharge}`);
+
+    // Calculate total amount with items + courier charge
+    const itemsTotal = items.reduce(
       (sum, item) => sum + (item.quantity * item.price) - (item.discount || 0),
       0
     );
+    const totalAmount = itemsTotal + (Number(courierCharge) || 0);
+    console.log(`OrderModel: Total Amount: ${totalAmount} (Items: ${itemsTotal}, Courier: ${courierCharge})`);
 
     // COD Logic: If type is SALE and deliveryType is COD (or similar), default to DUE if unpaid
     let paymentStatus = initialPaymentStatus;
@@ -148,8 +153,8 @@ export class Order {
   static async updateStatus(id, { status, confirmedBy, confirmationStatus }) {
     const validTransitions = {
       'PENDING': ['CONFIRMED', 'CANCELLED'],
-      'CONFIRMED': ['PROCESSING', 'CANCELLED'],
-      'PROCESSING': ['SHIPPED', 'CANCELLED'],
+      'CONFIRMED': ['PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
+      'PROCESSING': ['SHIPPED', 'DELIVERED', 'CANCELLED'],
       'SHIPPED': ['DELIVERED', 'RETURNED'],
       'DELIVERED': ['RETURNED'],
       'CANCELLED': [],

@@ -17,9 +17,19 @@ export class OrderReturn {
             }
             const orderTotal = parseFloat(orders[0].total_amount);
 
-            // Check if amount exceeds order total
-            if (parseFloat(amount) > orderTotal) {
-                throw new Error(`Refund amount (${amount}) cannot exceed order total (${orderTotal})`);
+            // Calculate total previously returned/refunded
+            const [existingReturns] = await connection.query(`SELECT SUM(amount) as total FROM returns_refunds WHERE order_id = ?`, [orderId]);
+            const previousTotal = parseFloat(existingReturns[0].total || 0);
+
+            // Check if amount exceeds order total minus previous returns
+            if ((previousTotal + parseFloat(amount)) > orderTotal) {
+                throw new Error(`Refund amount exceeds remaining balance. Total: ${orderTotal}, Paid/Refunded: ${previousTotal}, Attempt: ${amount}`);
+            }
+
+            // Check if Order is already returned (to prevent double stock restoration)
+            const [orderRows] = await connection.query(`SELECT status FROM orders WHERE id = ?`, [orderId]);
+            if (orderRows[0].status === 'RETURNED' && type.includes('RETURN')) {
+                throw new Error("Order is already fully returned. You can only process refunds.");
             }
 
             // Check if previously returned amount + current amount exceeds total (Optional but recommended, for now strict per-refunc)

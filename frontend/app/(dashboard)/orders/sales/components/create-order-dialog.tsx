@@ -63,6 +63,7 @@ const formSchema = z.object({
 
 interface OrderFormValues {
     customerName: string;
+    customerPhone?: string;
     customerId?: string;
     area?: string;
     thana?: string;
@@ -109,6 +110,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
         resolver: zodResolver(formSchema) as any,
         defaultValues: {
             customerName: "",
+            customerPhone: "",
             customerId: "",
             area: "",
             thana: "",
@@ -136,16 +138,22 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
     const courierCharge = form.watch("courierCharge");
     const amountPaid = form.watch("amountPaid");
 
-    function onSubmit(values: z.infer<typeof formSchema>) {
+    function onSubmit(values: OrderFormValues) {
         createOrder({
             url: orderApi.CREATE,
             method: "POST",
             postData: {
                 ...values,
                 type: "SALE",
-                totalAmount: subtotal + courierCharge,
+                // Pass base calculations, let backend validate final total
+                totalAmount: subtotal + (values.courierCharge || 0),
                 platform: values.platform || "Direct",
                 deliveryType: values.deliveryType || "Standard",
+                // Explicitly pass these for the "create on fly" logic
+                customerName: values.customerName,
+                customerPhone: values.customerPhone,
+                courierCharge: values.courierCharge,
+                amountPaid: values.amountPaid
             },
         });
     }
@@ -166,19 +174,34 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                             <div className="space-y-6">
                                 <section className="space-y-4 rounded-lg border p-4 bg-muted/50">
                                     <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Customer Information</h3>
-                                    <FormField
-                                        control={form.control}
-                                        name="customerName"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Customer Name</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="Enter customer name" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="customerName"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Customer Name</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="Name" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="customerPhone"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Phone</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="017..." {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <FormField
                                             control={form.control}
