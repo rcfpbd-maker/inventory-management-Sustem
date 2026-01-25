@@ -46,6 +46,10 @@ router.use(authenticateToken);
  *             type: "SALE"
  *             customerId: "cust_123"
  *             supplierId: "supp_123"
+ *             customerName: "New Customer (Optional)"
+ *             customerPhone: "01700000000 (Optional)"
+ *             amountPaid: 0
+ *             paymentMethod: "Cash"
  *             totalAmount: 500
  *             items:
  *               - productId: "prod_001"
