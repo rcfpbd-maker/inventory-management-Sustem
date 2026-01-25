@@ -9,4 +9,5 @@ export const reportApi = {
     ORDER_PROFIT: `${baseUrl}/reports/profit/orders`,
     GET_PLATFORM_SALES: `${baseUrl}/reports/platform-sales`,
     GET_DUE_LIST: `${baseUrl}/reports/due-list`,
+    DASHBOARD_STATS: `${baseUrl}/reports/dashboard-stats`,
 };

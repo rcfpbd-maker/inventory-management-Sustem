@@ -34,21 +34,54 @@ import { Input } from "@/components/ui/input";
 import { usePostData, useFetchData } from "@/hooks/useFetchData";
 import { orderApi } from "@/api/endpoint/order-api";
 import { customerApi } from "@/api/endpoint/customer-api";
-import { productApi } from "@/api/endpoint/product-api"; // Need to check if this exists or use a generic one
+import { productApi } from "@/api/endpoint/product-api";
 import { Customer, Product } from "@/types/api";
 
 const itemSchema = z.object({
     productId: z.string().min(1, "Product is required"),
-    quantity: z.number().min(1, "Quantity must be at least 1"),
-    price: z.number().min(0, "Price cannot be negative"),
+    quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
+    price: z.coerce.number().min(0, "Price cannot be negative"),
 });
 
 const formSchema = z.object({
-    customerId: z.string().min(1, "Customer is required"),
+    customerName: z.string().min(1, "Customer name is required"),
+    customerId: z.string().optional(),
+    area: z.string().optional(),
+    thana: z.string().optional(),
+    district: z.string().optional(),
+    notes: z.string().optional(),
+    courierId: z.string().min(1, "Courier is required"),
+    trackingId: z.string().optional(),
+    courierCharge: z.coerce.number().min(0, "Charge cannot be negative"),
+    paymentMethod: z.string().min(1, "Payment method is required"),
+    paymentReference: z.string().optional(),
+    amountPaid: z.coerce.number().min(0),
     platform: z.string().optional(),
     deliveryType: z.string().optional(),
     items: z.array(itemSchema).min(1, "At least one item is required"),
 });
+
+interface OrderFormValues {
+    customerName: string;
+    customerId?: string;
+    area?: string;
+    thana?: string;
+    district?: string;
+    notes?: string;
+    courierId: string;
+    trackingId?: string;
+    courierCharge: number;
+    paymentMethod: string;
+    paymentReference?: string;
+    amountPaid: number;
+    platform?: string;
+    deliveryType?: string;
+    items: {
+        productId: string;
+        quantity: number;
+        price: number;
+    }[];
+}
 
 interface CreateOrderDialogProps {
     open: boolean;
@@ -60,7 +93,6 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
         url: customerApi.GET_ALL,
     });
 
-    // Since productApi might not have GET_ALL yet, I'll use a direct string for now or hope it exists
     const { data: products = [] } = useFetchData<Product[]>({
         url: productApi.GET_ALL,
     });
@@ -73,14 +105,25 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
         },
     });
 
-    const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
+    const form = useForm<OrderFormValues>({
+        resolver: zodResolver(formSchema) as any,
         defaultValues: {
+            customerName: "",
             customerId: "",
+            area: "",
+            thana: "",
+            district: "",
+            notes: "",
+            courierId: "",
+            trackingId: "",
+            courierCharge: 60,
+            paymentMethod: "Cash on Delivery",
+            paymentReference: "",
+            amountPaid: 0,
             platform: "Direct",
             deliveryType: "Standard",
             items: [{ productId: "", quantity: 1, price: 0 }],
-        },
+        } as OrderFormValues,
     });
 
     const { fields, append, remove } = useFieldArray({
@@ -90,6 +133,8 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
 
     const watchItems = form.watch("items");
     const subtotal = watchItems.reduce((acc, item) => acc + (item.quantity * item.price), 0);
+    const courierCharge = form.watch("courierCharge");
+    const amountPaid = form.watch("amountPaid");
 
     function onSubmit(values: z.infer<typeof formSchema>) {
         createOrder({
@@ -98,7 +143,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
             postData: {
                 ...values,
                 type: "SALE",
-                totalAmount: subtotal,
+                totalAmount: subtotal + courierCharge,
                 platform: values.platform || "Direct",
                 deliveryType: values.deliveryType || "Standard",
             },
@@ -107,203 +152,299 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-full max-w-[95vw] lg:max-w-[80vw] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Create Sales Order</DialogTitle>
                     <DialogDescription>
-                        Add items and select a customer to create a new sale.
+                        Complete all details to create a new sales order.
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        <FormField
-                            control={form.control}
-                            name="customerId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Customer</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select a customer" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {customers.map((c) => (
-                                                <SelectItem key={c.id} value={c.id}>
-                                                    {c.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField
-                                control={form.control}
-                                name="platform"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Platform</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select platform" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="Direct">Direct</SelectItem>
-                                                <SelectItem value="Facebook">Facebook</SelectItem>
-                                                <SelectItem value="Website">Website</SelectItem>
-                                                <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
-                                name="deliveryType"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Delivery Type</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select delivery type" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="Standard">Standard</SelectItem>
-                                                <SelectItem value="Express">Express</SelectItem>
-                                                <SelectItem value="COD">Cash on Delivery</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <FormLabel>Order Items</FormLabel>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => append({ productId: "", quantity: 1, price: 0 })}
-                                >
-                                    <Plus className="mr-2 h-4 w-4" /> Add Item
-                                </Button>
-                            </div>
-
-                            {fields.map((field, index) => (
-                                <div key={field.id} className="grid grid-cols-12 gap-4 items-end">
-                                    <div className="col-span-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                            {/* Left Column */}
+                            <div className="space-y-6">
+                                <section className="space-y-4 rounded-lg border p-4 bg-muted/50">
+                                    <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Customer Information</h3>
+                                    <FormField
+                                        control={form.control}
+                                        name="customerName"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Customer Name</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Enter customer name" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <div className="grid grid-cols-2 gap-4">
                                         <FormField
                                             control={form.control}
-                                            name={`items.${index}.productId`}
+                                            name="area"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <Select
-                                                        onValueChange={(val) => {
-                                                            field.onChange(val);
-                                                            const product = products.find(p => p.id === val);
-                                                            if (product) {
-                                                                form.setValue(`items.${index}.price`, product.price || product.salePrice || product.sale_price || 0);
-                                                            }
-                                                        }}
-                                                        defaultValue={field.value}
-                                                    >
+                                                    <FormLabel>Area</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="Area" {...field} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="thana"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Thana</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="Thana" {...field} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                    <FormField
+                                        control={form.control}
+                                        name="district"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>District</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="District" {...field} />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </section>
+
+                                <section className="space-y-4 rounded-lg border p-4 bg-muted/50">
+                                    <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Delivery Details</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="platform"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Platform</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                         <FormControl>
-                                                            <SelectTrigger>
-                                                                <SelectValue placeholder="Select product" />
-                                                            </SelectTrigger>
+                                                            <SelectTrigger><SelectValue placeholder="Platform" /></SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                            {products.map((p) => (
-                                                                <SelectItem key={p.id} value={p.id}>
-                                                                    {p.name} (Stock: {p.stock || p.stock_quantity || 0})
-                                                                </SelectItem>
-                                                            ))}
+                                                            <SelectItem value="Direct">Direct</SelectItem>
+                                                            <SelectItem value="Facebook">Facebook</SelectItem>
+                                                            <SelectItem value="Website">Website</SelectItem>
+                                                            <SelectItem value="WhatsApp">WhatsApp</SelectItem>
                                                         </SelectContent>
                                                     </Select>
-                                                    <FormMessage />
                                                 </FormItem>
                                             )}
                                         />
-                                    </div>
-                                    <div className="col-span-2">
                                         <FormField
                                             control={form.control}
-                                            name={`items.${index}.quantity`}
+                                            name="deliveryType"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormControl>
-                                                        <Input
-                                                            type="number"
-                                                            min="1"
-                                                            {...field}
-                                                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                                                        />
-                                                    </FormControl>
-                                                    <FormMessage />
+                                                    <FormLabel>Type</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl>
+                                                            <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="Standard">Standard</SelectItem>
+                                                            <SelectItem value="Express">Express</SelectItem>
+                                                            <SelectItem value="COD">COD</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                 </FormItem>
                                             )}
                                         />
                                     </div>
-                                    <div className="col-span-3">
+                                    <FormField
+                                        control={form.control}
+                                        name="courierId"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Courier</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger><SelectValue placeholder="Select courier" /></SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="redx">RedX</SelectItem>
+                                                        <SelectItem value="steadfast">Steadfast</SelectItem>
+                                                        <SelectItem value="pathao">Pathao</SelectItem>
+                                                        <SelectItem value="paperfly">Paperfly</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <div className="grid grid-cols-2 gap-4">
                                         <FormField
                                             control={form.control}
-                                            name={`items.${index}.price`}
+                                            name="trackingId"
                                             render={({ field }) => (
                                                 <FormItem>
+                                                    <FormLabel>Tracking ID</FormLabel>
+                                                    <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="courierCharge"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Charge</FormLabel>
                                                     <FormControl>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            {...field}
-                                                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                                                        />
+                                                        <Input type="number" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
                                                     </FormControl>
-                                                    <FormMessage />
                                                 </FormItem>
                                             )}
                                         />
                                     </div>
-                                    <div className="col-span-1">
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="text-destructive"
-                                            onClick={() => remove(index)}
-                                            disabled={fields.length === 1}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
+                                </section>
+                            </div>
+
+                            {/* Right Column */}
+                            <div className="space-y-6">
+                                <section className="space-y-4 rounded-lg border p-4">
+                                    <div className="flex items-center justify-between border-b pb-2">
+                                        <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Order Items</h3>
+                                        <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 1, price: 0 })}>
+                                            <Plus className="mr-1 h-3 w-3" /> Add Item
                                         </Button>
                                     </div>
-                                </div>
-                            ))}
+                                    <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
+                                        {fields.map((field, index) => (
+                                            <div key={field.id} className="grid grid-cols-12 gap-2 items-start border-b pb-3 last:border-0">
+                                                <div className="col-span-6">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`items.${index}.productId`}
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <Select
+                                                                    onValueChange={(val) => {
+                                                                        field.onChange(val);
+                                                                        const p = products.find(prod => prod.id === val);
+                                                                        if (p) form.setValue(`items.${index}.price`, Number(p.price || 0));
+                                                                    }}
+                                                                    defaultValue={field.value}
+                                                                >
+                                                                    <FormControl><SelectTrigger><SelectValue placeholder="Product" /></SelectTrigger></FormControl>
+                                                                    <SelectContent>
+                                                                        {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.stock || 0})</SelectItem>)}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`items.${index}.quantity`}
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormControl><Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value) || 0)} /></FormControl>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                                <div className="col-span-3">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`items.${index}.price`}
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormControl><Input type="number" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} /></FormControl>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                                <div className="col-span-1 pt-1">
+                                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => remove(index)} disabled={fields.length === 1}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                <section className="space-y-4 rounded-lg border p-4 bg-muted/50">
+                                    <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Payment Information</h3>
+                                    <FormField
+                                        control={form.control}
+                                        name="paymentMethod"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Payment Method</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Method" /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="Cash">Cash</SelectItem>
+                                                        <SelectItem value="Cash on Delivery">COD</SelectItem>
+                                                        <SelectItem value="Bkash">Bkash</SelectItem>
+                                                        <SelectItem value="Nagad">Nagad</SelectItem>
+                                                        <SelectItem value="Rocket">Rocket</SelectItem>
+                                                        <SelectItem value="Bank">Bank</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="paymentReference"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Reference #</FormLabel>
+                                                    <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="amountPaid"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Amount Paid</FormLabel>
+                                                    <FormControl><Input type="number" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} /></FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                </section>
+
+                                <section className="p-4 rounded-lg border border-dashed bg-primary/5">
+                                    <h3 className="font-semibold text-sm uppercase tracking-wider mb-2">Order Summary</h3>
+                                    <div className="space-y-1 text-sm">
+                                        <div className="flex justify-between text-muted-foreground"><span>Subtotal:</span><span>৳{subtotal.toLocaleString()}</span></div>
+                                        <div className="flex justify-between text-muted-foreground"><span>Courier Charge:</span><span>৳{courierCharge.toLocaleString()}</span></div>
+                                        <div className="flex justify-between font-bold text-lg pt-1 border-t mt-1"><span>Total Payable:</span><span className="text-primary">৳{(subtotal + courierCharge).toLocaleString()}</span></div>
+                                        {(subtotal + courierCharge - amountPaid > 0) && (
+                                            <div className="flex justify-between text-destructive font-semibold pt-1"><span>Remaining Due:</span><span>৳{(subtotal + courierCharge - amountPaid).toLocaleString()}</span></div>
+                                        )}
+                                    </div>
+                                </section>
+                            </div>
                         </div>
 
-                        <div className="flex justify-between items-center pt-4 border-t">
-                            <div className="text-lg font-bold">
-                                Total: ৳{subtotal.toLocaleString()}
-                            </div>
-                            <DialogFooter>
-                                <Button type="submit" disabled={isLoading}>
-                                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Confirm Order
-                                </Button>
-                            </DialogFooter>
-                        </div>
+                        <DialogFooter className="pt-6 border-t">
+                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                            <Button type="submit" disabled={isLoading} className="px-8">
+                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Confirm & Create Order
+                            </Button>
+                        </DialogFooter>
                     </form>
                 </Form>
             </DialogContent>

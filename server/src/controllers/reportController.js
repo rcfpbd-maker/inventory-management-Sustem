@@ -8,8 +8,8 @@ export const getProfitLoss = async (req, res) => {
     const start = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split("T")[0];
     const end = endDate || new Date().toISOString().split("T")[0];
 
-    // Total Sales Revenue (Excluding Returns)
-    const salesQuery = `SELECT SUM(total_amount) as total FROM orders WHERE type = 'SALE' AND status != 'CANCELLED' AND status != 'RETURNED' AND date >= ? AND date <= ?`;
+    // Total Sales Revenue (Only Delivered Orders)
+    const salesQuery = `SELECT SUM(total_amount) as total FROM orders WHERE type = 'SALE' AND status = 'DELIVERED' AND date >= ? AND date <= ?`;
     const [salesRows] = await pool.query(salesQuery, [start, end]);
     const totalRevenue = salesRows[0].total || 0;
 
@@ -61,7 +61,7 @@ export const getOrderProfitReport = async (req, res) => {
         (o.total_amount - IFNULL(e.total_expense, 0)) as profit
       FROM orders o
       LEFT JOIN expenses e ON o.id = e.order_id
-      WHERE o.type = 'SALE' AND o.status != 'CANCELLED'
+      WHERE o.type = 'SALE' AND o.status = 'DELIVERED'
       ORDER BY o.date DESC
     `;
     const [rows] = await pool.query(query);
@@ -120,7 +120,7 @@ export const getDailySales = async (req, res) => {
         SUM(total_amount) as totalSales,
         AVG(total_amount) as averageOrderValue
       FROM orders 
-      WHERE type = 'SALE' AND status != 'CANCELLED' AND DATE(date) = ?
+      WHERE type = 'SALE' AND status = 'DELIVERED' AND DATE(date) = ?
     `;
     const [summaryRows] = await pool.query(summaryQuery, [targetDate]);
     const summary = summaryRows[0];
@@ -131,7 +131,7 @@ export const getDailySales = async (req, res) => {
         HOUR(date) as hour,
         SUM(total_amount) as sales
       FROM orders 
-      WHERE type = 'SALE' AND status != 'CANCELLED' AND DATE(date) = ?
+      WHERE type = 'SALE' AND status = 'DELIVERED' AND DATE(date) = ?
       GROUP BY HOUR(date)
       ORDER BY hour
     `;
@@ -146,7 +146,7 @@ export const getDailySales = async (req, res) => {
       FROM order_items oi
       JOIN orders o ON oi.order_id = o.id
       JOIN products p ON oi.product_id = p.id
-      WHERE o.type = 'SALE' AND o.status != 'CANCELLED' AND DATE(o.date) = ?
+      WHERE o.type = 'SALE' AND o.status = 'DELIVERED' AND DATE(o.date) = ?
       GROUP BY p.id
       ORDER BY revenue DESC
     `;
@@ -158,7 +158,7 @@ export const getDailySales = async (req, res) => {
         payment_status as status,
         COUNT(*) as count
       FROM orders 
-      WHERE type = 'SALE' AND status != 'CANCELLED' AND DATE(date) = ?
+      WHERE type = 'SALE' AND status = 'DELIVERED' AND DATE(date) = ?
       GROUP BY payment_status
     `;
     const [paymentRows] = await pool.query(paymentQuery, [targetDate]);
@@ -288,7 +288,7 @@ export const getPlatformSales = async (req, res) => {
         COUNT(*) as order_count,
         SUM(total_amount) as total_amount
       FROM orders 
-      WHERE type = 'SALE' AND status != 'CANCELLED' AND date >= ? AND date <= ?
+      WHERE type = 'SALE' AND status = 'DELIVERED' AND date >= ? AND date <= ?
       GROUP BY platform
       ORDER BY total_amount DESC
     `;
@@ -322,6 +322,43 @@ export const getDueList = async (req, res) => {
     `;
     const [rows] = await pool.query(query);
     sendResponse(res, 200, "Due List Report", rows);
+  } catch (error) {
+    sendError(res, 500, error.message, error);
+  }
+};
+
+export const getDashboardStats = async (req, res) => {
+  try {
+    // 1. Total Delivered Sales Revenue (Lifetime)
+    const [salesRows] = await pool.query(`SELECT SUM(total_amount) as total FROM orders WHERE type = 'SALE' AND status = 'DELIVERED'`);
+    const totalSales = salesRows[0].total || 0;
+
+    // 2. Pending Orders Count
+    const [pendingRows] = await pool.query(`SELECT COUNT(*) as count FROM orders WHERE type = 'SALE' AND status = 'PENDING'`);
+    const pendingOrdersCount = pendingRows[0].count || 0;
+
+    // 3. Total Customers
+    const [customerRows] = await pool.query(`SELECT COUNT(*) as count FROM customers`);
+    const totalCustomers = customerRows[0].count || 0;
+
+    // 4. Sales Growth (Last 30 days vs previous 30 days - Quick estimate)
+    const [thisMonthRows] = await pool.query(`SELECT SUM(total_amount) as total FROM orders WHERE type = 'SALE' AND status = 'DELIVERED' AND date >= DATE_SUB(NOW(), INTERVAL 30 DAY)`);
+    const [lastMonthRows] = await pool.query(`SELECT SUM(total_amount) as total FROM orders WHERE type = 'SALE' AND status = 'DELIVERED' AND date >= DATE_SUB(NOW(), INTERVAL 60 DAY) AND date < DATE_SUB(NOW(), INTERVAL 30 DAY)`);
+
+    const thisMonth = Number(thisMonthRows[0].total || 0);
+    const lastMonth = Number(lastMonthRows[0].total || 0);
+    let growth = 0;
+    if (lastMonth > 0) {
+      growth = ((thisMonth - lastMonth) / lastMonth) * 100;
+    }
+
+    sendResponse(res, 200, "Dashboard Statistics", {
+      totalSales,
+      pendingOrdersCount,
+      totalCustomers,
+      salesGrowth: growth.toFixed(1) + "%",
+      growthTrend: growth >= 0 ? "up" : "down"
+    });
   } catch (error) {
     sendError(res, 500, error.message, error);
   }

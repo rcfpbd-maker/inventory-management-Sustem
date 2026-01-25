@@ -1,37 +1,56 @@
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useFetchData } from "@/hooks/useFetchData";
+import { reportApi } from "@/api/endpoint/report-api";
 
-interface StatsCardProps {
-  title: string;
-  value: string;
-  change: string;
-  trend: "up" | "down";
+interface StatsData {
+  totalSales: number;
+  pendingOrdersCount: number;
+  totalCustomers: number;
+  salesGrowth: string;
+  growthTrend: "up" | "down";
 }
 
-const stats: StatsCardProps[] = [
-  {
-    title: "Monthly recurring revenue",
-    value: "$34.1K",
-    change: "+6.1%",
-    trend: "up",
-  },
-  {
-    title: "Users",
-    value: "500.1K",
-    change: "+19.2%",
-    trend: "up",
-  },
-  {
-    title: "User growth",
-    value: "11.3%",
-    change: "-1.2%",
-    trend: "down",
-  },
-];
-
 export function StatsCards() {
+  const { data, isLoading } = useFetchData<StatsData>({
+    url: reportApi.DASHBOARD_STATS,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="h-32 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  const stats = [
+    {
+      title: "Delivered Sales Revenue",
+      value: `৳${Number(data?.totalSales || 0).toLocaleString()}`,
+      change: data?.salesGrowth || "0%",
+      trend: data?.growthTrend || "up",
+    },
+    {
+      title: "Total Customers",
+      value: (data?.totalCustomers || 0).toString(),
+      change: "+0%",
+      trend: "up" as const,
+    },
+    {
+      title: "Pending Orders",
+      value: (data?.pendingOrdersCount || 0).toString(),
+      change: "Waitlist",
+      trend: "down" as const,
+    },
+  ];
+
   return (
     <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-3">
       {stats.map((stat, index) => (
@@ -62,7 +81,7 @@ export function StatsCards() {
           <CardFooter className="items-center px-6 [.border-t]:pt-6 border-border flex justify-end border-t p-0!">
             <Link
               className="text-primary hover:text-primary/90 flex items-center px-6 py-3 text-sm font-medium"
-              href="#"
+              href={stat.title === "Pending Orders" ? "/orders?status=PENDING" : "#"}
             >
               View more <ArrowRight className="ms-2 size-4" />
             </Link>
