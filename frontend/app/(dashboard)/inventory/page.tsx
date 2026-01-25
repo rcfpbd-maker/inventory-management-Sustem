@@ -123,7 +123,7 @@ export default function InventoryPage() {
                   <TableCell>
                     {product.categoryName || product.categoryId}
                   </TableCell>
-                  <TableCell>${(product.price || 0).toFixed(2)}</TableCell>
+                  <TableCell>${Number(product.price || 0).toFixed(2)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <span

@@ -49,7 +49,7 @@ export class OrderReturn {
                     const stockAdjustment = (type === 'PURCHASE_RETURN') ? -item.quantity : item.quantity;
 
                     await connection.query(
-                        `UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?`,
+                        `UPDATE inventory SET quantity = quantity + ? WHERE product_id = ?`,
                         [stockAdjustment, item.product_id]
                     );
                 }
@@ -83,12 +83,18 @@ export class OrderReturn {
             ORDER BY rr.date DESC
         `;
         const [rows] = await pool.query(query);
-        return rows;
+        return rows.map(row => ({
+            ...row,
+            amount: Number(row.amount)
+        }));
     }
 
     static async findByOrderId(orderId) {
         const query = `SELECT * FROM returns_refunds WHERE order_id = ? ORDER BY date DESC`;
         const [rows] = await pool.query(query, [orderId]);
-        return rows;
+        return rows.map(row => ({
+            ...row,
+            amount: Number(row.amount)
+        }));
     }
 }

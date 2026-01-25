@@ -80,7 +80,7 @@ export class Order {
 
         if (stockChange !== 0) {
           await connection.query(
-            `UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?`,
+            `UPDATE inventory SET quantity = quantity + ? WHERE product_id = ?`,
             [stockChange, item.productId]
           );
         }
@@ -106,7 +106,10 @@ export class Order {
       ORDER BY o.date DESC
     `;
     const [rows] = await pool.query(query);
-    return rows;
+    return rows.map(row => ({
+      ...row,
+      total_amount: Number(row.total_amount)
+    }));
   }
 
   static async findById(id) {
@@ -130,7 +133,16 @@ export class Order {
 
     const [items] = await pool.query(itemsQuery, [id]);
 
-    return { ...orders[0], items };
+    return {
+      ...orders[0],
+      total_amount: Number(orders[0].total_amount),
+      items: items.map(item => ({
+        ...item,
+        price: Number(item.price),
+        discount: Number(item.discount),
+        total: Number(item.total)
+      }))
+    };
   }
 
   static async updateStatus(id, { status, confirmedBy, confirmationStatus }) {
@@ -190,7 +202,7 @@ export class Order {
 
           if (stockAdjustment !== 0) {
             await connection.query(
-              `UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?`,
+              `UPDATE inventory SET quantity = quantity + ? WHERE product_id = ?`,
               [stockAdjustment, item.product_id]
             );
           }

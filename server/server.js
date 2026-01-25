@@ -32,4 +32,3 @@ startServer().catch((error) => {
   process.exit(1);
 });
 
-// Force restart for env update

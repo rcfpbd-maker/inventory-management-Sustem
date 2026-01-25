@@ -8,7 +8,8 @@ const pool = mysql.createPool({
   database: config.db.name,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  decimalNumbers: true
 });
 
 export default pool;

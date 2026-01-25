@@ -1,12 +1,14 @@
 import { Product } from "../models/productModel.js";
 import { sendResponse, sendError } from "../utils/responseHandler.js";
 import { AuditLog } from "../models/auditLogModel.js";
+import logger from "../utils/logger.js";
 
 export const getAllProducts = async (req, res) => {
   try {
     const products = await Product.findAll();
     sendResponse(res, 200, "Products retrieved successfully", products);
   } catch (error) {
+    logger.error(`getAllProducts error: ${error.message}`);
     sendError(res, 500, error.message, error);
   }
 };
