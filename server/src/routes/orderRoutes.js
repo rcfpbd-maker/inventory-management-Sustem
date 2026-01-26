@@ -40,21 +40,56 @@ router.use(authenticateToken);
  *       required: true
  *       content:
  *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Order'
- *           example:
- *             type: "SALE"
- *             customerId: "cust_123"
- *             supplierId: "supp_123"
- *             customerName: "New Customer (Optional)"
- *             customerPhone: "01700000000 (Optional)"
- *             amountPaid: 0
- *             paymentMethod: "Cash"
- *             totalAmount: 500
- *             items:
- *               - productId: "prod_001"
- *                 quantity: 2
- *                 price: 250
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 type:
+ *                   type: string
+ *                   example: "SALE"
+ *                 customerId:
+ *                   type: string
+ *                   example: "cust_123"
+ *                 supplierId:
+ *                   type: string
+ *                   example: "supp_123"
+ *                 customerName:
+ *                   type: string
+ *                   description: "Optional (for new customers)"
+ *                   example: "New Customer"
+ *                 customerPhone:
+ *                   type: string
+ *                   description: "Optional (for new customers)"
+ *                   example: "01700000000"
+ *                 amountPaid:
+ *                   type: number
+ *                   description: "Initial payment amount"
+ *                   example: 500
+ *                 paymentMethod:
+ *                   type: string
+ *                   example: "Cash"
+ *                 paymentReference:
+ *                   type: string
+ *                   example: "TXN123456"
+ *                 courierCharge:
+ *                   type: number
+ *                   example: 60
+ *                 totalAmount:
+ *                   type: number
+ *                   example: 500
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       productId:
+ *                         type: string
+ *                         example: "prod_001"
+ *                       quantity:
+ *                         type: number
+ *                         example: 2
+ *                       price:
+ *                         type: number
+ *                         example: 250
  *     responses:
  *       201:
  *         description: Order created
