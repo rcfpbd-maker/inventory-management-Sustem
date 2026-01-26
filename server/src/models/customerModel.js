@@ -7,7 +7,7 @@ export class Customer {
     if (!phone) throw new Error("Phone number is required");
     const id = uuidv4();
     const query = `INSERT INTO customers (id, name, phone, email) VALUES (?, ?, ?, ?)`;
-    await pool.query(query, [id, name, phone, email]);
+    await pool.query(query, [id, name, phone, email || null]);
     return { id, name, phone, email };
   }
 

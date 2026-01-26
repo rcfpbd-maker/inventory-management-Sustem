@@ -4,7 +4,10 @@ import { v4 as uuidv4 } from "uuid";
 export class OrderReturn {
     static async create(data) {
         const { orderId, type, amount, reason, date } = data;
+        const finalAmount = Number(amount);
         const id = uuidv4();
+
+        if (isNaN(finalAmount)) throw new Error("Invalid refund amount");
 
         const connection = await pool.getConnection();
         try {
@@ -22,8 +25,8 @@ export class OrderReturn {
             const previousTotal = parseFloat(existingReturns[0].total || 0);
 
             // Check if amount exceeds order total minus previous returns
-            if ((previousTotal + parseFloat(amount)) > orderTotal) {
-                throw new Error(`Refund amount exceeds remaining balance. Total: ${orderTotal}, Paid/Refunded: ${previousTotal}, Attempt: ${amount}`);
+            if ((previousTotal + finalAmount) > orderTotal + 0.01) {
+                throw new Error(`Refund amount exceeds remaining balance. Total: ${orderTotal}, Paid/Refunded: ${previousTotal}, Attempt: ${finalAmount}`);
             }
 
             // Check if Order is already returned (to prevent double stock restoration)
@@ -40,7 +43,7 @@ export class OrderReturn {
               VALUES (?, ?, ?, ?, ?, ?)
             `;
 
-            await connection.query(query, [id, orderId, type, amount, reason, date || new Date()]);
+            await connection.query(query, [id, orderId, type, finalAmount, reason || 'No reason', date || new Date()]);
 
             // If it's a return (implies goods back), update order status and adjust stock
             // Types: SALE_RETURN, PURCHASE_RETURN. 

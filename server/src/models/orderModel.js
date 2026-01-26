@@ -17,13 +17,19 @@ export class Order {
       trackingId = null,
       courierCharge = 0
     } = orderData;
+
+    // Convert empty strings to null for FK consistency
+    const finalCustomerId = (customerId === "" || customerId === undefined) ? null : customerId;
+    const finalSupplierId = (supplierId === "" || supplierId === undefined) ? null : supplierId;
+    const finalCourierId = (courierId === "" || courierId === undefined) ? null : courierId;
+
     const id = uuidv4();
 
     console.log(`OrderModel: Creating order ${id}. CourierCharge: ${courierCharge}`);
 
     // Calculate total amount with items + courier charge
     const itemsTotal = items.reduce(
-      (sum, item) => sum + (item.quantity * item.price) - (item.discount || 0),
+      (sum, item) => sum + (Number(item.quantity) * Number(item.price)) - (Number(item.discount) || 0),
       0
     );
     const totalAmount = itemsTotal + (Number(courierCharge) || 0);
@@ -52,27 +58,30 @@ export class Order {
       await connection.query(orderQuery, [
         id,
         type,
-        customerId,
-        supplierId,
+        finalCustomerId,
+        finalSupplierId,
         totalAmount,
         platform,
         deliveryType,
         paymentStatus,
         confirmedBy,
         confirmationStatus,
-        courierId,
+        finalCourierId,
         trackingId
       ]);
 
       // 2. Create Order Items and Update Stock
       for (const item of items) {
         const itemId = uuidv4();
-        const itemTotal = (item.quantity * item.price) - (item.discount || 0);
+        const itemQuantity = Number(item.quantity);
+        const itemPrice = Number(item.price);
+        const itemDiscount = Number(item.discount) || 0;
+        const itemTotal = (itemQuantity * itemPrice) - itemDiscount;
 
         // Insert Item
         await connection.query(
           `INSERT INTO order_items (id, order_id, product_id, quantity, price, discount, total) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [itemId, id, item.productId, item.quantity, item.price, item.discount || 0, itemTotal]
+          [itemId, id, item.productId, itemQuantity, itemPrice, itemDiscount, itemTotal]
         );
 
         // Update Product Stock
@@ -173,10 +182,11 @@ export class Order {
       }
 
       const { status: currentStatus, type: orderType } = orderRows[0];
+      const normalizedStatus = status.toUpperCase();
 
       // Allow same status or valid transition
-      if (currentStatus !== status && (!validTransitions[currentStatus] || !validTransitions[currentStatus].includes(status))) {
-        throw new Error(`Invalid status transition from ${currentStatus} to ${status}`);
+      if (currentStatus !== normalizedStatus && (!validTransitions[currentStatus] || !validTransitions[currentStatus].includes(normalizedStatus))) {
+        throw new Error(`Invalid status transition from ${currentStatus} to ${normalizedStatus}`);
       }
 
       // 1. Update status
@@ -185,7 +195,7 @@ export class Order {
         SET status = ?, confirmed_by = IFNULL(?, confirmed_by), confirmation_status = IFNULL(?, confirmation_status)
         WHERE id = ?
       `;
-      await connection.query(query, [status, confirmedBy, confirmationStatus, id]);
+      await connection.query(query, [normalizedStatus, confirmedBy, confirmationStatus, id]);
 
       // 2. Handle Stock Restoration on Cancellation
       if (status === 'CANCELLED' && currentStatus !== 'CANCELLED') {

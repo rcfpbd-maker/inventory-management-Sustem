@@ -45,6 +45,7 @@ const itemSchema = z.object({
 
 const formSchema = z.object({
     customerName: z.string().min(1, "Customer name is required"),
+    customerPhone: z.string().optional(),
     customerId: z.string().optional(),
     area: z.string().optional(),
     thana: z.string().optional(),

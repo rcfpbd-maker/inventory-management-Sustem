@@ -4,7 +4,10 @@ import { v4 as uuidv4 } from "uuid";
 export class Payment {
     static async create(paymentData) {
         const { orderId, amount, paymentMethod, paymentChannel, transactionId, status = 'COMPLETED', date } = paymentData;
+        const finalAmount = Number(amount);
         const id = uuidv4();
+
+        if (isNaN(finalAmount)) throw new Error("Invalid payment amount");
 
         const connection = await pool.getConnection();
         try {
@@ -13,13 +16,13 @@ export class Payment {
             // 1. Get Order Total and Current Total Paid
             const [orderRows] = await connection.query(`SELECT total_amount FROM orders WHERE id = ?`, [orderId]);
             if (orderRows.length === 0) throw new Error("Order not found");
-            const totalAmount = orderRows[0].total_amount;
+            const totalAmount = parseFloat(orderRows[0].total_amount);
 
             const [payments] = await connection.query(`SELECT SUM(amount) as currentTotalPaid FROM payments WHERE order_id = ?`, [orderId]);
             const currentTotalPaid = parseFloat(payments[0].currentTotalPaid || 0);
 
             // 2. Validation: Paid amount <= order total
-            if (currentTotalPaid + parseFloat(amount) > parseFloat(totalAmount) + 0.01) { // Small buffer for decimals
+            if (currentTotalPaid + finalAmount > totalAmount + 0.01) { // Small buffer for decimals
                 throw new Error(`Payment exceeds order total. Remaining: ${totalAmount - currentTotalPaid}`);
             }
 
@@ -27,10 +30,10 @@ export class Payment {
         INSERT INTO payments (id, order_id, amount, payment_method, payment_channel, transaction_id, status, date)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
-            await connection.query(query, [id, orderId, amount, paymentMethod, paymentChannel, transactionId, status, date || new Date()]);
+            await connection.query(query, [id, orderId, finalAmount, paymentMethod || 'Cash', paymentChannel || null, transactionId || null, status, date || new Date()]);
 
             // 3. Update Order payment status
-            const totalPaid = currentTotalPaid + parseFloat(amount);
+            const totalPaid = currentTotalPaid + finalAmount;
             let paymentStatus = 'PARTIAL';
             if (totalPaid >= totalAmount - 0.01) {
                 paymentStatus = 'PAID';

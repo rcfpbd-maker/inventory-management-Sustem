@@ -42,7 +42,7 @@ export const createOrder = async (req, res) => {
         const newCustomer = await Customer.create({
           name: customerName,
           phone: customerPhone,
-          email: ""
+          email: null
         });
         req.body.customerId = newCustomer.id;
       }
