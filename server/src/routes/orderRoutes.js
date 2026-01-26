@@ -48,18 +48,19 @@ router.use(authenticateToken);
  *                   example: "SALE"
  *                 customerId:
  *                   type: string
- *                   example: "cust_123"
+ *                   description: "Leave empty to create new customer"
+ *                   example: ""
  *                 supplierId:
  *                   type: string
  *                   example: "supp_123"
  *                 customerName:
  *                   type: string
- *                   description: "Optional (for new customers)"
- *                   example: "New Customer"
+ *                   description: "Required if customerId is empty"
+ *                   example: "Swagger Test Customer"
  *                 customerPhone:
  *                   type: string
- *                   description: "Optional (for new customers)"
- *                   example: "01700000000"
+ *                   description: "Required if customerId is empty"
+ *                   example: "01711223344"
  *                 amountPaid:
  *                   type: number
  *                   description: "Initial payment amount"
